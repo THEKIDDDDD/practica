@@ -104,13 +104,13 @@ def main():
     print("Бот запущен и ожидает сообщений")
     while is_running:
         try:
-            bot.polling(none_stop=True, interval=0, timeout=30)  # Увеличение времени ожидания
+            bot.polling(none_stop=True, interval=0, timeout=30)
         except telebot.apihelper.ApiException as e:
             print(f"Ошибка API: {e.result.text}")
-            time.sleep(5)  # Подождать 5 секунд перед повторной попыткой
+            time.sleep(5)
         except Exception as e:
             print(f"Ошибка при запуске бота: {e}")
-            time.sleep(5)  # Подождать 5 секунд перед повторной попыткой
+            time.sleep(5)
 
 if __name__ == '__main__':
     main()
