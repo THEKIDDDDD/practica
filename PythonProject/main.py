@@ -6,6 +6,7 @@ from telebot import apihelper
 
 
 bot = telebot.TeleBot('7832112372:AAGnYZDYoOM4w5Z6y9hk8wM2ftmj_QPNj9s')
+
 is_running = True
 
 def send_message(chat_id, message):
@@ -17,24 +18,45 @@ def analyze_and_notify(file_path, chat_id):
         print("Файл успешно загружен")
         print(df.head())
         df = df.fillna(0)
-        total_assigned = (df[('Месяц', 'Выдано')].sum() +
-                          df[('Неделя', 'Выдано')].sum() +
-                          df[('День', 'Выдано')].sum())
-        total_planned = (df[('Месяц', 'План')].sum() +
-                         df[('Неделя', 'План')].sum() +
-                         df[('День', 'План')].sum())
-        if total_planned == 0:
+
+        message = ""
+        total_assigned_all = 0
+        total_planned_all = 0
+
+        for index, row in df.iterrows():
+            teacher_name = row[('ФИО преподавателя', 'Unnamed: 1_level_1')]
+            total_assigned = (row[('Месяц', 'Выдано')] +
+                              row[('Неделя', 'Выдано')] +
+                              row[('День', 'Выдано')])
+            total_planned = (row[('Месяц', 'План')] +
+                             row[('Неделя', 'План')] +
+                             row[('День', 'План')])
+            if total_planned == 0:
+                raise ValueError("Некорректные данные в столбцах 'Выдано' или 'План'")
+
+            percentage_assigned = (total_assigned / total_planned) * 100
+            print(f"Процент выданных заданий для {teacher_name}: {percentage_assigned:.2f}%")
+            message += f"Процент выданных домашних заданий для {teacher_name}: {percentage_assigned:.2f}%\n"
+            if percentage_assigned < 70:
+                message += f"Внимание! {teacher_name} выдал(а) менее 70% домашних заданий. Пожалуйста, обратите внимание на это.\n\n"
+            else:
+                message += f"Отлично! {teacher_name} выдал(а) более 70% домашних заданий. Продолжайте в том же духе!\n\n"
+
+            total_assigned_all += total_assigned
+            total_planned_all += total_planned
+
+        if total_planned_all == 0:
             raise ValueError("Некорректные данные в столбцах 'Выдано' или 'План'")
 
-        percentage_assigned = (total_assigned / total_planned) * 100
-        print(f"Процент выданных заданий: {percentage_assigned:.2f}%")
-        message = f"Процент выданных домашних заданий: {percentage_assigned:.2f}%\n"
-        if percentage_assigned < 70:
-            message += "Внимание! Выдано менее 70% домашних заданий. Пожалуйста, обратите внимание на это.\n\nС уважением,\nВаш чат-бот"
+        overall_percentage_assigned = (total_assigned_all / total_planned_all) * 100
+        overall_message = f"Общий процент выданных домашних заданий всех преподавателей: {overall_percentage_assigned:.2f}%\n"
+        if overall_percentage_assigned < 70:
+            overall_message += "Внимание! Общий процент выданных домашних заданий менее 70%. Пожалуйста, обратите внимание на это.\n\nС уважением,\nВаш чат-бот"
         else:
-            message += "Отлично! Выдано более 70% домашних заданий. Продолжайте в том же духе!\n\nС уважением,\nВаш чат-бот"
+            overall_message += "Отлично! Общий процент выданных домашних заданий более 70%. Продолжайте в том же духе!\n\nС уважением,\nВаш чат-бот"
 
         send_message(chat_id, message)
+        send_message(chat_id, overall_message)
     except ValueError as ve:
         print(f"Ошибка при анализе данных: {ve}")
         send_message(chat_id, f"Ошибка при анализе данных: {ve}. Пожалуйста, проверьте файл и попробуйте еще раз.")
@@ -42,19 +64,18 @@ def analyze_and_notify(file_path, chat_id):
         print(f"Ошибка при анализе данных: {e}")
         send_message(chat_id, "Произошла ошибка при анализе данных. Пожалуйста, проверьте файл и попробуйте еще раз.")
 
-# start
 @bot.message_handler(commands=['start'])
 def handle_start(message):
     bot.reply_to(message, 'Привет! Отправьте мне файл Excel для анализа.')
     print("Команда /start выполнена")
-# restart
+
 @bot.message_handler(commands=['restart'])
 def handle_restart(message):
     global is_running
     is_running = True
     bot.reply_to(message, 'Бот перезапущен.')
     print("Команда /restart выполнена")
-# stop
+
 @bot.message_handler(commands=['stop'])
 def handle_stop(message):
     global is_running
@@ -83,13 +104,13 @@ def main():
     print("Бот запущен и ожидает сообщений")
     while is_running:
         try:
-            bot.polling(none_stop=True, interval=0, timeout=30)
+            bot.polling(none_stop=True, interval=0, timeout=30)  # Увеличение времени ожидания
         except telebot.apihelper.ApiException as e:
             print(f"Ошибка API: {e.result.text}")
-            time.sleep(5)
+            time.sleep(5)  # Подождать 5 секунд перед повторной попыткой
         except Exception as e:
             print(f"Ошибка при запуске бота: {e}")
-            time.sleep(5)
+            time.sleep(5)  # Подождать 5 секунд перед повторной попыткой
 
 if __name__ == '__main__':
     main()
